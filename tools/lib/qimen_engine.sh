@@ -915,7 +915,6 @@ qm_calc_yima() {
 qm_calc_tianma() {
     local day_gz_index="$1"
     local day_branch=$((day_gz_index % 12))
-    # DI_ZHI: 子0 丑1 寅2 卯3 辰4 巳5 午6 未7 申8 酉9 戌10 亥11
     local tianma_branch=-1
     case $day_branch in
         2|8)  tianma_branch=6  ;;  # 寅申→午
@@ -925,16 +924,16 @@ qm_calc_tianma() {
         6|0)  tianma_branch=2  ;;  # 午子→寅
         1|7)  tianma_branch=4  ;;  # 丑未→辰
     esac
+    if (( tianma_branch < 0 )); then
+        echo "ERROR: failed to determine 天马 for day branch index=$day_branch" >&2
+        return 1
+    fi
     QM_TIANMA=$tianma_branch
 }
 
-# qm_calc_dingma day_gz_index
-# 丁马: based on day pillar's 旬首 (liujia head)
-# 甲子→卯, 甲戌→丑, 甲申→亥, 甲午→酉, 甲辰→未, 甲寅→巳
 qm_calc_dingma() {
     local day_gz_index="$1"
     local xun=$((day_gz_index - (day_gz_index % 10)))
-    # xun values: 0=甲子, 10=甲戌, 20=甲申, 30=甲午, 40=甲辰, 50=甲寅
     local dingma_branch=-1
     case $xun in
         0)  dingma_branch=3  ;;  # 甲子→卯
@@ -944,6 +943,10 @@ qm_calc_dingma() {
         40) dingma_branch=7  ;;  # 甲辰→未
         50) dingma_branch=5  ;;  # 甲寅→巳
     esac
+    if (( dingma_branch < 0 )); then
+        echo "ERROR: failed to determine 丁马 for day xun=$xun" >&2
+        return 1
+    fi
     QM_DINGMA=$dingma_branch
 }
 
@@ -982,9 +985,40 @@ qm_calc_special_patterns() {
             QM_SPECIAL_PATTERNS+=("玉女守门:$p")
         fi
     done
+
+    # --- 复合格局 (跨宫检测) ---
+    # 全盘伏吟: 8宫天星全部在本位 (QM_STAR_FUYIN 全 1)
+    # 全盘反吟: 8宫天星全部在对位 (QM_STAR_FANYIN 全 1)
+    local fuyin_count=0 fanyin_count=0
+    for ((p=1; p<=9; p++)); do
+        if (( p == 5 )); then continue; fi
+        (( QM_STAR_FUYIN[p] == 1 )) && (( fuyin_count++ ))
+        (( QM_STAR_FANYIN[p] == 1 )) && (( fanyin_count++ ))
+    done
+    if (( fuyin_count == 8 )); then
+        QM_SPECIAL_PATTERNS+=("全盘伏吟:0")
+    fi
+    if (( fanyin_count == 8 )); then
+        QM_SPECIAL_PATTERNS+=("全盘反吟:0")
+    fi
+
+    # 三奇升殿: 乙在巽4, 丙在离9, 丁在兑7 (常见传统约定)
+    for ((p=1; p<=9; p++)); do
+        if (( p == 5 )); then continue; fi
+        tian_gan="${QM_HEAVEN_STEM[$p]}"
+        if [[ "$tian_gan" == "乙" && $p -eq 4 ]]; then
+            QM_SPECIAL_PATTERNS+=("乙奇升殿:$p")
+        elif [[ "$tian_gan" == "丙" && $p -eq 9 ]]; then
+            QM_SPECIAL_PATTERNS+=("丙奇升殿:$p")
+        elif [[ "$tian_gan" == "丁" && $p -eq 7 ]]; then
+            QM_SPECIAL_PATTERNS+=("丁奇升殿:$p")
+        fi
+    done
 }
 
 # qm_calc_yigua — 演卦: 值符值使演卦 + 每宫门方演卦
+# 约定: 值符宫→内卦, 值使宫→外卦. 来自 kentang/kinqimen (星阙) 体系.
+# 传统依据: 值符=自己/主体=内, 值使=事情/客体=外. 有别派用相反约定.
 _PALACE_BAGUA=(坎 坤 震 巽 中 乾 兑 艮 离)
 
 qm_calc_yigua() {
@@ -1003,8 +1037,13 @@ qm_calc_yigua() {
         fi
     done
 
-    local inner="${_PALACE_BAGUA[$((zf_palace - 1))]}"
-    local outer="${_PALACE_BAGUA[$((zs_palace - 1))]}"
+    local inner="" outer=""
+    if (( zf_palace >= 1 && zf_palace <= 9 )); then
+        inner="${_PALACE_BAGUA[$((zf_palace - 1))]}"
+    fi
+    if (( zs_palace >= 1 && zs_palace <= 9 )); then
+        outer="${_PALACE_BAGUA[$((zs_palace - 1))]}"
+    fi
     if [[ -n "$inner" && "$inner" != "中" && -n "$outer" && "$outer" != "中" ]]; then
         local gua_name
         gua_name=$(dl_get "GUA_${outer}${inner}" 2>/dev/null) || true
@@ -1310,8 +1349,8 @@ qm_compute_plate() {
     qm_calc_liuyi_jixing || return 1
     qm_calc_kongwang "$hour_gz" || return 1
     qm_calc_yima "$hour_gz" || return 1
-    qm_calc_tianma "$day_gz"
-    qm_calc_dingma "$day_gz"
+    qm_calc_tianma "$day_gz" || return 1
+    qm_calc_dingma "$day_gz" || return 1
     qm_calc_patterns || return 1
     qm_calc_special_patterns
     qm_calc_yigua

@@ -123,8 +123,8 @@ _qm_wx_strength_lookup() {
     local item
     local OLD_IFS="$IFS"; IFS=','; set -- $strength_str; IFS="$OLD_IFS"
     for item in "$@"; do
-        if [[ "${item:0:1}" == "$wx" ]]; then
-            echo "${item:1}"
+        if [[ "$item" == "${wx}"* ]]; then
+            echo "${item#$wx}"
             return
         fi
     done
@@ -375,6 +375,7 @@ _qm_generate_json() {
     done
 
     printf '{\n' >&"$fd"
+    printf '  "schema_version": 2,\n' >&"$fd"
     printf '  "datetime": "%s",\n' "$(_qm_json_escape "$dt")" >&"$fd"
     printf '  "si_zhu": {\n' >&"$fd"
     printf '    "year": "%s",\n' "$(_qm_json_escape "$ygz")" >&"$fd"
@@ -411,12 +412,15 @@ _qm_generate_json() {
         "$(_qm_json_escape "$dm")" "$(_qm_branch_to_palace "$QM_DINGMA")" >&"$fd"
 
     printf '  "special_patterns": [' >&"$fd"
-    local sp_first=1 sp
+    local sp_first=1 sp sp_name sp_palace
     if (( ${#QM_SPECIAL_PATTERNS[@]} > 0 )); then
         for sp in "${QM_SPECIAL_PATTERNS[@]}"; do
             if (( sp_first == 0 )); then printf ', ' >&"$fd"; fi
             sp_first=0
-            printf '"%s"' "$(_qm_json_escape "$sp")" >&"$fd"
+            sp_name="${sp%%:*}"
+            sp_palace="${sp##*:}"
+            printf '{"name": "%s", "palaces": [%s]}' \
+                "$(_qm_json_escape "$sp_name")" "$sp_palace" >&"$fd"
         done
     fi
     printf '],\n' >&"$fd"

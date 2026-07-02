@@ -1,6 +1,6 @@
 ---
 name: qmen_luming
-description: "全局总览/禄命/运势/解盘/帮我看看 - Full life overview: six-relation sweep across all palaces with multi-perspective analysis (奇门大师/占卜师/军师/法术奇门)"
+description: "全局总览/禄命/运势/解盘/帮我看看 - Full life overview: six-relation sweep across all palaces with multi-perspective analysis (奇门大师/军师/法术奇门)"
 ---
 
 # 奇门禄命总览 — 六亲全局分析
@@ -53,7 +53,7 @@ bin/qimen_luming.sh
 | 用户意图 | 视角 | 重点 |
 |---------|------|------|
 | "帮我看看整体" / 默认 | 奇门大师 | 全面:六亲+格局+综合 |
-| "这件事能不能做" / "问事" | 占卜师 | 用神+方位+吉凶+行动建议 |
+| "这件事能不能做" / "问事" | → 改用 `qmen_event` | 生日盘上做问事不合方法 |
 | "如何规划/竞争/策略" | 军师 | 攻守+值符值使主导+策略 |
 | "化解/布局/法术" | 法术奇门 | 六戊+方位+施行建议 |
 
@@ -98,19 +98,9 @@ bin/qimen_luming.sh
 - 如需择时 → 使用 qmen_xunshijieyun
 ```
 
-#### 占卜师视角
+#### 占卜师视角 (已移除)
 
-```
-## 用神分析
-- 根据所问事项确定用神宫位
-- 用神宫的星门神+天地干组合
-
-## 方位吉凶
-- 各宫位吉凶排序(吉门+吉星+吉神=大吉)
-
-## 行动建议
-- 吉方/吉时/注意事项
-```
+**问事类需求请使用 `qmen_event`(问事局解读)。** 占卜师视角需要的是 event plate(问事局),而 luming 工作在 birth plate(生日盘)上。两者方法论不可混用。
 
 #### 军师视角
 
@@ -154,6 +144,7 @@ bin/qimen_luming.sh
 3. 断语优先用脚本输出的内容,AI补充不得超越数据范围
 4. 四个视角是同一盘面的不同解读角度,不需要重新起局
 5. AI 可以白话解释断语含义,但不得添加主观建议
+6. 演卦约定: 值符宫→内卦, 值使宫→外卦(沿用 kentang/kinqimen 体系)。传统依据是值符=自己=内,值使=事情=外。别派可能用相反约定。
 
 ## 工作目录
 

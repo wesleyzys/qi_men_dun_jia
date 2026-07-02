@@ -82,6 +82,10 @@ qj_parse_plate_json() {
         fi
 
         # top-level direct fields
+        if [[ "$line" == *'"schema_version": '* ]]; then
+            dl_set "plate_schema_version" "$(_qj_json_line_raw "$line")"
+            continue
+        fi
         if [[ "$line" == *'"datetime": '* ]]; then
             dl_set "plate_datetime" "$(_qj_json_line_str "$line")"
             continue
@@ -112,6 +116,52 @@ qj_parse_plate_json() {
             val="${tmp%%\}*}"
             val="${val%,}"
             dl_set "plate_yi_ma_palace" "$val"
+            continue
+        fi
+        if [[ "$line" == *'"tian_ma": {'* ]]; then
+            tmp="${line#*\"branch\": \"}"
+            val="${tmp%%\"*}"
+            dl_set "plate_tian_ma_branch" "$val"
+            tmp="${line#*\"palace\": }"
+            val="${tmp%%\}*}"
+            val="${val%,}"
+            dl_set "plate_tian_ma_palace" "$val"
+            continue
+        fi
+        if [[ "$line" == *'"ding_ma": {'* ]]; then
+            tmp="${line#*\"branch\": \"}"
+            val="${tmp%%\"*}"
+            dl_set "plate_ding_ma_branch" "$val"
+            tmp="${line#*\"palace\": }"
+            val="${tmp%%\}*}"
+            val="${val%,}"
+            dl_set "plate_ding_ma_palace" "$val"
+            continue
+        fi
+        if [[ "$line" == *'"yigua_fushi": '* ]]; then
+            dl_set "plate_yigua_fushi" "$(_qj_json_line_str "$line")"
+            continue
+        fi
+        if [[ "$line" == *'"wuxing_strength": '* ]]; then
+            dl_set "plate_wuxing_strength" "$(_qj_json_line_str "$line")"
+            continue
+        fi
+        if [[ "$line" == *'"special_patterns": ['* ]]; then
+            tmp="${line#*\[}"
+            tmp="${tmp%\]*}"
+            # Parse object array: {"name": "X", "palaces": [N]}, ...
+            # Convert to legacy pipe-delimited "name1:palace1|name2:palace2|..." for show.sh
+            local sp_acc="" sp_remainder="$tmp" sp_name sp_pal
+            while [[ "$sp_remainder" == *'"name":'* ]]; do
+                sp_name="${sp_remainder#*\"name\": \"}"
+                sp_name="${sp_name%%\"*}"
+                sp_pal="${sp_remainder#*\"palaces\": \[}"
+                sp_pal="${sp_pal%%\]*}"
+                if [[ -n "$sp_acc" ]]; then sp_acc="${sp_acc}|"; fi
+                sp_acc="${sp_acc}${sp_name}:${sp_pal}"
+                sp_remainder="${sp_remainder#*\"palaces\": \[*\]}"
+            done
+            dl_set "plate_special_patterns_raw" "$sp_acc"
             continue
         fi
         if [[ "$line" == *'"tianqin_host_palace": '* ]]; then
@@ -216,11 +266,11 @@ qj_parse_plate_json() {
                 qkey="palace_${current_palace}_${field}"
 
                 case "$field" in
-                    name|wuxing|direction|dizhi|star|star_wuxing|star_jixi|gate|gate_wuxing|gate_jixi|deity|tian_gan|tian_gan_wuxing|di_gan|di_gan_wuxing|state|tianqin_stem|tianqin_stem_wuxing|weishu)
+                    name|wuxing|direction|dizhi|star|star_wuxing|star_jixi|gate|gate_wuxing|gate_jixi|deity|tian_gan|tian_gan_wuxing|di_gan|di_gan_wuxing|state|tianqin_stem|tianqin_stem_wuxing|weishu|seasonal_strength|yigua_menfang)
                         val="$(_qj_json_line_str "$line")"
                         dl_set "$qkey" "$val"
                         ;;
-                    kong_wang|yi_ma|ji_xing|geng|rumu_gan|rumu_star|rumu_gate|men_po|star_fan_yin|gate_fan_yin|star_fu_yin|gate_fu_yin|gan_fan_yin|gan_fu_yin|tianqin|xiantian|houtian)
+                    kong_wang|yi_ma|ji_xing|geng|rumu_gan|rumu_star|rumu_gate|men_po|pozhi|star_fan_yin|gate_fan_yin|star_fu_yin|gate_fu_yin|gan_fan_yin|gan_fu_yin|tianqin|xiantian|houtian)
                         val="$(_qj_json_line_raw "$line")"
                         dl_set "$qkey" "$val"
                         ;;

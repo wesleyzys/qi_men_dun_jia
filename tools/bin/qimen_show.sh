@@ -157,11 +157,30 @@ QM_KONGWANG_2=$(_qm_branch_index_by_char "$_DL_RET") || QM_KONGWANG_2=0
 dl_get_v "plate_yi_ma_branch" 2>/dev/null || true
 QM_YIMA=$(_qm_branch_index_by_char "$_DL_RET") || QM_YIMA=0
 
+dl_get_v "plate_tian_ma_branch" 2>/dev/null || true
+QM_TIANMA=$(_qm_branch_index_by_char "$_DL_RET") || QM_TIANMA=0
+dl_get_v "plate_ding_ma_branch" 2>/dev/null || true
+QM_DINGMA=$(_qm_branch_index_by_char "$_DL_RET") || QM_DINGMA=0
+
+dl_get_v "plate_yigua_fushi" 2>/dev/null || true
+QM_YIGUA_FUSHI="${_DL_RET:-}"
+
+QM_SPECIAL_PATTERNS=()
+dl_get_v "plate_special_patterns_raw" 2>/dev/null || true
+_sp_raw="${_DL_RET:-}"
+if [[ -n "$_sp_raw" ]]; then
+  _OLD_IFS="$IFS"; IFS='|'; read -ra _sp_arr <<< "$_sp_raw"; IFS="$_OLD_IFS"
+  for _sp_item in "${_sp_arr[@]}"; do
+    [[ -n "$_sp_item" ]] && QM_SPECIAL_PATTERNS+=("$_sp_item")
+  done
+fi
+
 dl_get_v "plate_tianqin_host_palace" 2>/dev/null || true
 QM_TIANQIN_FOLLOW_PALACE="${_DL_RET:-2}"
 
 declare -a QM_HEAVEN=() QM_HEAVEN_STEM=() QM_HUMAN=() QM_DEITY=() QM_EARTH=() QM_STATES=()
 declare -a QM_JIXING=() QM_GENG=() QM_RUMU_GAN=() QM_RUMU_STAR=() QM_RUMU_GATE=() QM_MENPO=()
+declare -a QM_POZHI=() QM_YIGUA_MENFANG=()
 declare -a QM_STAR_FANYIN=() QM_GATE_FANYIN=() QM_STAR_FUYIN=() QM_GATE_FUYIN=()
 declare -a QM_GAN_FANYIN=() QM_GAN_FUYIN=()
 
@@ -192,6 +211,8 @@ for ((_p=1; _p<=9; _p++)); do
   dl_get_v "palace_${_p}_rumu_star" 2>/dev/null || true; QM_RUMU_STAR[$_p]=$(_show_bool "$_DL_RET")
   dl_get_v "palace_${_p}_rumu_gate" 2>/dev/null || true; QM_RUMU_GATE[$_p]=$(_show_bool "$_DL_RET")
   dl_get_v "palace_${_p}_men_po" 2>/dev/null || true; QM_MENPO[$_p]=$(_show_bool "$_DL_RET")
+  dl_get_v "palace_${_p}_pozhi" 2>/dev/null || true; QM_POZHI[$_p]=$(_show_bool "$_DL_RET")
+  dl_get_v "palace_${_p}_yigua_menfang" 2>/dev/null || true; QM_YIGUA_MENFANG[$_p]="${_DL_RET:-}"
   dl_get_v "palace_${_p}_star_fan_yin" 2>/dev/null || true; QM_STAR_FANYIN[$_p]=$(_show_bool "$_DL_RET")
   dl_get_v "palace_${_p}_gate_fan_yin" 2>/dev/null || true; QM_GATE_FANYIN[$_p]=$(_show_bool "$_DL_RET")
   dl_get_v "palace_${_p}_star_fu_yin" 2>/dev/null || true; QM_STAR_FUYIN[$_p]=$(_show_bool "$_DL_RET")

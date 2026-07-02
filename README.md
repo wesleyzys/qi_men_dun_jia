@@ -113,6 +113,7 @@ skill_qmenpowers/
 │       ├── wanwu_nine_stars.dat        # Reference: nine stars correspondences
 │       ├── wanwu_eight_gates.dat       # Reference: eight gates correspondences
 │       ├── wanwu_eight_deities.dat     # Reference: eight deities correspondences
+│       ├── engine_patterns.dat         # Engine: 81 named pair pattern names (天干加地干_名称) — source of truth for engine
 │       ├── wanwu_geju.dat              # Reference: pattern definitions & diagnostics
 │       ├── rules_yongshen.dat          # Analysis: yongshen selection rules
 │       ├── wanwu_prefix_map.dat        # Analysis: symbol-to-prefix mapping
@@ -200,6 +201,7 @@ Data files fall into two categories: **engine data** (11 files consumed by the c
 | `luoshu.dat` | Luoshu magic square (洛书) palace traversal order |
 | `meta_palace.dat` | Palace metadata: name, wuxing, direction, Earthly Branches, tail numbers, Xiantian/Houtian numbers |
 | `twelve_states.dat` | Twelve Growth Stages (十二长生): lifecycle states used in palace vitality assessment |
+| `engine_patterns.dat` | 81 named pair patterns (`天干加地干_名称=name`). Engine-only source of truth for pattern detection. wanwu_geju.dat keeps `_含义/_吉凶` interpretation data; both files must stay in sync. |
 
 ### Reference Data (万物类象)
 
@@ -214,7 +216,7 @@ Comprehensive correspondence tables for Qi Men interpretation. These files are n
 | `wanwu_nine_stars.dat` | Nine Stars (九星): wuxing, auspiciousness, color, body/disease, personality, weather, objects, places, career, divination suitability per star |
 | `wanwu_eight_gates.dat` | Eight Gates (八门): wuxing, auspiciousness, color, body/disease, personality, places, career, divination suitability; three-auspicious / three-inauspicious classification |
 | `wanwu_eight_deities.dat` | Eight Deities (八神): wuxing, imagery, personality, body, events, objects per deity; Yang/Yin sequence notes |
-| `wanwu_geju.dat` | Pattern Definitions (格局大全): Geng patterns, all 81 stem-on-stem combinations, auspicious/inauspicious pattern catalog, Men-Po conditions, Fan-Yin/Fu-Yin tables, tomb tables, Liu-Yi Ji-Xing, Kong-Wang, Yi-Ma rules |
+| `wanwu_geju.dat` | Pattern Definitions (格局大全): Geng patterns, all 81 stem-on-stem combinations, auspicious/inauspicious pattern catalog, Men-Po conditions, Fan-Yin/Fu-Yin tables, tomb tables, Liu-Yi Ji-Xing, Kong-Wang, Yi-Ma rules. Note: pattern names duplicated to `engine_patterns.dat` (engine source); this file is reference-only for 含义/吉凶. |
 
 ### Analysis Data
 
@@ -292,6 +294,13 @@ The engine function `qm_compute_plate` executes the following steps in order:
 | `[空亡]` | 空亡 | Void/empty |
 | `[驿马]` | 驿马 | Courier horse (mobility indicator) |
 | `[迫制]` | 十干迫制 | Heaven stem's wuxing overcomes earth stem's wuxing (suppression) |
+| `全盘伏吟` | (composite) | All 8 stars in their home palaces — total stagnation |
+| `全盘反吟` | (composite) | All 8 stars in their opposite palaces — total reversal |
+| `乙奇升殿` | 乙在巽4 | Yi-stem in Xun-4 palace (auspicious) |
+| `丙奇升殿` | 丙在离9 | Bing-stem in Li-9 palace (auspicious) |
+| `丁奇升殿` | 丁在兑7 | Ding-stem in Dui-7 palace (auspicious) |
+
+**演卦 (Yigua)** convention: 值符宫 → 内卦 (lower trigram), 值使宫 → 外卦 (upper trigram). Sourced from kentang/kinqimen tradition. Per-palace 门方演卦 also emitted (door bagua → upper, palace bagua → lower).
 
 ## Output
 
@@ -349,6 +358,10 @@ Two output modes are available.
 ```
 
 **JSON mode** is always-on: every run writes a structured JSON file (based on `--type`) containing all header fields and an array of palace objects, each with every computed field. The text output is displayed on the terminal simultaneously.
+
+Each plate JSON includes a top-level `schema_version: 2` field. Increment this when adding/removing top-level fields to enable downstream version detection.
+
+**special_patterns** are emitted as `[{"name": "XX", "palaces": [N]}]` objects (not strings), allowing future cross-palace patterns to use multi-palace arrays.
 
 ## Analysis Script
 
@@ -763,7 +776,7 @@ Requires: ./qmen_birth.json (for day stem, hour stem, birth year stem, zhifu/zhi
 
 `SKILL.md` files in the `skills/` directory define OpenCode AI skills for conversational interpretation.
 
-**`qmen_dunjia`** is the unified router skill. When the user says "Qi Men Dun Jia" without a clear analysis direction, this skill takes over to (1) force a triage between event time vs. birth time, (2) perform the entry blessing ritual, (3) call `qimen_qiju.sh` to generate the appropriate plate JSON, and (4) hand off to the right sub-skill. Sub-skills detect the existing plate JSON and skip their own plate-setting step. The router never performs analysis itself.
+**`qmen_dunjia`** is the unified router skill. When the user says "Qi Men Dun Jia" without a clear analysis direction, this skill takes over to (1) force a triage between event time vs. birth time, (2) perform the entry blessing ritual, (3) call `qimen_qiju.sh` to generate the appropriate plate JSON, and (4) hand off to the right sub-skill. Sub-skills detect the existing plate JSON and skip their own plate-setting step. The router never performs analysis itself. When user intent is ambiguous after a birth plate is generated, the router presents a 3-choice menu (全局总览 / 财运事业 / 性格分析) rather than silently defaulting to the heaviest skill.
 
 **`qmen_event`** drives event plate reading (问事局): run analysis → narrative reading → follow-up. Maps free-text questions to 9 standard question types. Can only be invoked via `qmen_dunjia` router (which handles ritual and plate generation). Used exclusively for event plates; birth plate analysis uses the huaqizhen skill family (caiguan, hunlian, xingge, huaqizhen).
 
@@ -781,7 +794,7 @@ Requires: ./qmen_birth.json (for day stem, hour stem, birth year stem, zhifu/zhi
 
 **`qmen_zhanduan`** (古籍占断) executes divination judgments based on ancient text rules from "Qi Men Zhi Gui" (《奇门旨归》volumes 6-13). The script evaluates DSL-encoded rules against the event plate: resolves role stems (日干/时干/年干/用神/custom) to palace positions, evaluates wuxing relationships and state conditions between roles, and collects all matched conclusions. AI then explains the conclusions in plain language.
 
-**`qmen_luming`** (禄命总览 / Full Life Overview) provides a complete six-relation life reading with 4 perspective modes. It calls `qimen_luming.sh` for deterministic six-relation computation, then AI interprets across six life domains (parents, siblings, children, career, spouse/wealth, health). Four perspective modes: 奇门大师 (comprehensive), 占卜师 (divination-focused), 军师 (strategy-focused), 法术奇门 (ritual-focused). Also serves as the fallback route when user intent is unclear.
+**`qmen_luming`** (禄命总览 / Full Life Overview) provides a complete six-relation life reading with 3 perspective modes. It calls `qimen_luming.sh` for deterministic six-relation computation (with correct 六甲遁干 substitution per year branch) plus deity verdicts (神性情 / 神论命 / 神喜忌), then AI interprets across six life domains (parents, siblings, children, career, spouse/wealth, health). Three perspective modes: 奇门大师 (comprehensive), 军师 (strategy-focused), 法术奇门 (ritual-focused). For 问事 (event-divination) intent, the router redirects to `qmen_event` instead (correct plate type).
 
 **`qmen_wanwu`** (万物类象画像) generates creative imagery portraits from Qi Men symbol combinations. Three modes: scene (environment/atmosphere), object (shape/color/material/function), and person (appearance/temperament/behavior). Symbols are flexibly mapped to dimensions (each symbol used once), with twelve growth stages as lowest-priority modifier. Supports iterative refinement (style, domain, era adjustments) within wanwu data bounds.
 
